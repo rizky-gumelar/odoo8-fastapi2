@@ -1,0 +1,4 @@
+.env
+coretan.txt
+**/__pycache__/
+venv2/*
