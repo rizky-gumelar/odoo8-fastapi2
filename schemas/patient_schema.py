@@ -31,8 +31,12 @@ class PatientOut(PatientBase):
 
     @field_validator("guardian", "image", mode="before")
     @classmethod
-    def convert_false_to_none(cls, v):
-        return None if v is False else v
+    def clean_fields(cls, v):
+        if v is False:
+            return None
+        if isinstance(v, str):
+            return v.replace('\n', '')  # Hapus newline dari base64
+        return v
 
 class PatientOutAll(PatientBase):
     id: int

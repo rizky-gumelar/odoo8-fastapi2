@@ -15,6 +15,18 @@ def get_patients(user=Depends(get_odoo_user)):
     result = patient_model.search_read(fields=['id', 'name', 'date_of_birth', 'gender', 'is_minor', 'guardian', 'tag_ids', 'image_small'], limit=50)
     return result
 
+@router.get("/{patient_id}", response_model=PatientOut)
+def get_patient(patient_id: int, user=Depends(get_odoo_user)):
+    patient_model = OdooModel("hospital.patient", user["uid"], user["username"], user["password"])
+
+    # Gunakan read untuk ambil detail berdasarkan ID
+    result = patient_model.read([patient_id], fields=['id', 'name', 'date_of_birth', 'gender', 'is_minor', 'guardian', 'tag_ids', 'image'])
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    return result[0]
+
 # @router.post("/", response_model=PatientOut)
 # def create_patient(data: PatientCreate, user=Depends(get_odoo_user)):
 #     patient_model = OdooModel("hospital.patient", user["uid"], user["username"], user["password"])
