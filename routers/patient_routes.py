@@ -10,7 +10,7 @@ import base64
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
 @router.get("/", response_model=List[PatientOutAll])
-def get_patients(user=Depends(get_odoo_user)):
+async def get_patients(user=Depends(get_odoo_user)):
     patient_model = OdooModel("hospital.patient", user["uid"], user["username"], user["password"])
     result = patient_model.search_read(fields=['id', 'name', 'date_of_birth', 'gender', 'is_minor', 'guardian', 'tag_ids', 'image_small'], limit=50)
     return result

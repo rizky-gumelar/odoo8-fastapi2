@@ -30,7 +30,7 @@ class AppointmentOut(BaseModel):
     total_qty: float
     date_of_birth: Optional[date]
 
-    @field_validator("date_of_birth", mode="before")
+    @field_validator("date_of_birth", "note", mode="before")
     @classmethod
     def convert_false_to_none(cls, v):
         return None if v is False else v
