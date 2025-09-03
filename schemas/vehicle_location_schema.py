@@ -20,3 +20,8 @@ class VehicleLocationCreate(VehicleLocationBase):
 class VehicleLocationOut(VehicleLocationBase):
     id: int
     fleet_id: int
+
+    @field_validator("address", "village", "district", "city", "province", "postcode", mode="before")
+    @classmethod
+    def convert_false_to_none(cls, v):
+        return None if v is False else v

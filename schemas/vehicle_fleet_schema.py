@@ -13,5 +13,10 @@ class VehicleFleetCreate(VehicleFleetBase):
 
 class VehicleFleetOut(VehicleFleetBase):
     id: int
+    head: Optional[int]
+    last_location: Optional[int]
+
+class VehicleFleetOutDetail(VehicleFleetBase):
+    id: int
     head: Optional[VehicleHeadOut] = None
     last_location: Optional[VehicleLocationOut] = None
