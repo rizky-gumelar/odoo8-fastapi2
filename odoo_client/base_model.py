@@ -9,7 +9,10 @@ class OdooModel:
         self.model = model
         self.url = settings.ODOO_URL
         self.db = settings.ODOO_DB
-        self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
+        # self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
+        self.models = xmlrpc.client.ServerProxy(
+            f"{self.url}/xmlrpc/2/object", allow_none=True
+        )
 
     def search_read(self, domain=None, fields=None, limit=10):
         return self.models.execute_kw(
@@ -61,4 +64,19 @@ class OdooModel:
             self.model,
             'unlink',
             [ids]
+        )
+
+    def search(self, domain=None, limit=10, offset=0, order=None):
+        return self.models.execute_kw(
+            self.db,
+            self.uid,
+            self.password,
+            self.model,
+            'search',
+            [domain or []],
+            {
+                'limit': limit,
+                'offset': offset,
+                'order': order,
+            }
         )

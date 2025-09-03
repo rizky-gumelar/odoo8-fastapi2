@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
-from datetime import date
+from datetime import datetime, date
+
 
 class VehicleLocationBase(BaseModel):
     latitude: Optional[float] = None

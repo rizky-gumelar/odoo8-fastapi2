@@ -5,6 +5,7 @@ from routers.patient_routes import router as patient_router
 from routers.appointment_routes import router as appointment_router
 from routers.appointment_line_routes import router as appointment_line_routes
 import uvicorn
+from routers.vehicle_fleet_routes import router as fleet_router
 
 app = FastAPI(
     title="Odoo XML-RPC FastAPI",
@@ -13,6 +14,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(fleet_router)
 app.include_router(partner_router)
 app.include_router(patient_router)
 app.include_router(appointment_router)

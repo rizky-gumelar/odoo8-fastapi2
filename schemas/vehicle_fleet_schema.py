@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import date
+from schemas.vehicle_head_schema import VehicleHeadOut
+from schemas.vehicle_location_schema import VehicleLocationOut
 
 class VehicleFleetBase(BaseModel):
     nopol: str = Field(..., title="Nomor Polisi")
@@ -11,5 +13,5 @@ class VehicleFleetCreate(VehicleFleetBase):
 
 class VehicleFleetOut(VehicleFleetBase):
     id: int
-    head: Optional[VehicleHeadRead] = None
-    last_location: Optional[VehicleLocationRead] = None
+    head: Optional[VehicleHeadOut] = None
+    last_location: Optional[VehicleLocationOut] = None
