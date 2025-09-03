@@ -7,7 +7,7 @@ class VehicleLocationBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address: Optional[str] = None
-    vilage: Optional[str] = None
+    village: Optional[str] = None
     district: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
