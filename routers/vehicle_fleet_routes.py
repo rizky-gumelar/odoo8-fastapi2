@@ -9,6 +9,7 @@ from dependencies.auth_dep import get_odoo_user
 from helper.helper import preprocess_odoo_data, normalize_relations
 import base64
 import httpx
+from fastapi.concurrency import run_in_threadpool
 
 async def get_address_from_coordinates(data: dict):
     lat = data.get("latitude")
@@ -24,7 +25,7 @@ async def get_address_from_coordinates(data: dict):
         "format": "jsonv2"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=5.0) as client:
         response = await client.get(url, params=params)
 
     if response.status_code == 200:
@@ -114,7 +115,9 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
     data_dict = preprocess_odoo_data(data.dict()) # process data
     # cari ID berdasarkan nopol
     nopol = data_dict.get("plate_number")
-    fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
+    # fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
+    fleet_id = await run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+
     if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet ID not found")
 
@@ -126,20 +129,21 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
         "latitude": data_dict.get("latitude"),
         "longitude": data_dict.get("longitude"),
         "address": address_data.get("display_name") or address_line.get("road") or "",
-        "village": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or "",
-        "district": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or address_line.get("municipality") or "",
-        "city": address_line.get("city") or address_line.get("town") or address_line.get("county") or "",
+        "village": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
+        "district": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
+        "city": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
         "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
         "postcode": address_line.get("postcode") or "",
         "timestamp": data_dict.get("lastUpdated"),
         "fleet_id": fleet_id[0]
     }
-    new_id = location_model.create(new_location)
+    # new_id = location_model.create(new_location)
+    new_id = await run_in_threadpool(location_model.create, new_location)
         
     return {
         "status": "200 OK", 
         "nopol": nopol,
-        "data": new_location
+        "timestamp": data_dict.get("lastUpdated")
         }
     # return new_location
 
