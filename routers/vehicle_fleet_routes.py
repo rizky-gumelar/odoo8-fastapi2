@@ -10,6 +10,7 @@ from helper.helper import preprocess_odoo_data, normalize_relations
 import base64
 import httpx
 from fastapi.concurrency import run_in_threadpool
+import asyncio
 
 async def get_address_from_coordinates(data: dict):
     lat = data.get("latitude")
@@ -146,4 +147,54 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
         "timestamp": data_dict.get("lastUpdated")
         }
     # return new_location
+
+@router.post("/karlo-update2/")
+async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
+    # Inisialisasi model Odoo
+    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
+    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
+
+    # Preprocess data
+    data_dict = preprocess_odoo_data(data.dict())
+    nopol = data_dict.get("plate_number")
+
+    # Jalankan search dan get_address secara paralel
+    search_task = asyncio.create_task(
+        run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+    )
+    address_task = asyncio.create_task(
+        get_address_from_coordinates(data.dict())
+    )
+
+    # Tunggu dua-duanya selesai
+    fleet_id, address_data = await asyncio.gather(search_task, address_task)
+
+    # Validasi hasil search
+    if not fleet_id:
+        raise HTTPException(status_code=404, detail="Fleet ID not found")
+
+    address_line = address_data.get("address", {})
+
+    # Siapkan data lokasi
+    new_location = {
+        "latitude": data_dict.get("latitude"),
+        "longitude": data_dict.get("longitude"),
+        "address": address_data.get("display_name") or address_line.get("road") or "",
+        "village": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
+        "district": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
+        "city": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
+        "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
+        "postcode": address_line.get("postcode") or "",
+        "timestamp": data_dict.get("lastUpdated"),
+        "fleet_id": fleet_id[0]
+    }
+
+    # Simpan data lokasi (juga di threadpool)
+    new_id = await run_in_threadpool(location_model.create, new_location)
+
+    return {
+        "status": "200 OK",
+        "nopol": nopol,
+        "timestamp": data_dict.get("lastUpdated")
+    }
 
