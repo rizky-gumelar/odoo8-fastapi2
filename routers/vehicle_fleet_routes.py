@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from typing import Optional, List
 from datetime import date
 from schemas.vehicle_fleet_schema import VehicleFleetCreate, VehicleFleetOut, VehicleFleetOutDetail
-from schemas.vehicle_location_schema import VehicleLocationCreate, VehicleLocationOut
-from schemas.vehicle_karlo_schema import VehicleKarloCreate, VehicleKarloOut
+from schemas.vehicle_karlo_schema import VehicleKarloCreate
 from odoo_client.base_model import OdooModel
 from dependencies.auth_dep import get_odoo_user
 from helper.helper import preprocess_odoo_data, normalize_relations
@@ -46,14 +45,13 @@ router = APIRouter(prefix="/vehicle", tags=["Vehicle"])
 @router.get("/{nopol}", response_model=VehicleFleetOutDetail)
 def get_fleet(nopol: str, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
     # cari ID berdasarkan nopol
     fleet_ids = fleet_model.search([('nopol', '=', nopol)], limit=1)
 
     if not fleet_ids:
         raise HTTPException(status_code=404, detail="Fleet not found")
-    result = fleet_model.read(fleet_ids, fields=['id', 'nopol', 'head_id', 'last_location_id'])[0]
+    result = fleet_model.read(fleet_ids, fields=['id', 'nopol', 'head_id', 'city', 'timestamp'])[0]
 
     # Head
     head = None
@@ -63,56 +61,7 @@ def get_fleet(nopol: str, user=Depends(get_odoo_user)):
             "nolambung": result["head_id"][1],
         }
 
-    # Last Location
-    last_location = None
-    if result.get("last_location_id"):
-        loc_data = location_model.read(
-            [result["last_location_id"][0]],
-            fields=[
-                'id', 'fleet_id', 'latitude', 'longitude', 'address', 'village',
-                'district', 'city', 'province', 'postcode', 'timestamp'
-            ]
-        )
-        if loc_data:
-            loc = loc_data[0]
-            last_location = {
-                "id": loc["id"],
-                "fleet_id": loc["fleet_id"][0] if isinstance(loc["fleet_id"], list) else loc["fleet_id"],
-                "latitude": loc.get("latitude"),
-                "longitude": loc.get("longitude"),
-                "address": loc.get("address"),
-                "village": loc.get("village"), 
-                "district": loc.get("district"),
-                "city": loc.get("city"),
-                "province": loc.get("province"),
-                "postcode": loc.get("postcode"),
-                "timestamp": loc.get("timestamp"),
-            }
-
-    return {
-        "id": result["id"],
-        "nopol": result["nopol"],
-        "head": head,
-        "last_location": last_location
-    }
-
-@router.post("/location/", response_model=VehicleLocationOut)
-def create_location(data: VehicleLocationCreate, user=Depends(get_odoo_user)):
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
-    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-
-    data_dict = preprocess_odoo_data(data.dict()) # process data
-    
-    fleet_id = data_dict.get("fleet_id")
-    fleet_exists = fleet_model.search([("id", "=", fleet_id)], limit=1)
-    if not fleet_exists:
-        raise HTTPException(status_code=404, detail="Fleet ID not found")
-
-    new_id = location_model.create(data_dict)
-    location = location_model.read([new_id], fields=['id', 'fleet_id', 'latitude', 'longitude', 'address', 'village', 'district', 'city', 'province', 'postcode', 'timestamp'])
-    # Normalisasi hasil
-    clean_location = normalize_relations(location[0])
-    return clean_location
+    return result
 
 @router.post("/karlo-update/")
 async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user)):

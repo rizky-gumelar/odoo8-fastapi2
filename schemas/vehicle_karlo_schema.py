@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from schemas.vehicle_head_schema import VehicleHeadOut
-from schemas.vehicle_location_schema import VehicleLocationOut, VehicleLocationBase
+from schemas.vehicle_fleet_schema import VehicleFleetOutDetail
 
 class VehicleKarloBase(BaseModel):
     gps_imei: str = Field(..., example="No IMEI GPS")
@@ -20,6 +20,6 @@ class VehicleKarloBase(BaseModel):
 class VehicleKarloCreate(VehicleKarloBase):
     pass
 
-class VehicleKarloOut(VehicleLocationBase):
+class VehicleKarloOut(VehicleFleetOutDetail):
     # id: int
     head: Optional[VehicleHeadOut] = None
