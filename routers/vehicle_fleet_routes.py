@@ -12,6 +12,12 @@ import httpx
 from fastapi.concurrency import run_in_threadpool
 import asyncio
 
+odoo_rpc_semaphore = asyncio.Semaphore(4)
+
+async def safe_run_in_threadpool(func, *args, **kwargs):
+    async with odoo_rpc_semaphore:
+        return await run_in_threadpool(func, *args, **kwargs)
+
 async def get_address_from_coordinates(data: dict):
     lat = data.get("latitude")
     lon = data.get("longitude")
@@ -117,7 +123,9 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
     # cari ID berdasarkan nopol
     nopol = data_dict.get("plate_number")
     # fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
-    fleet_id = await run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+    # fleet_id = await run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+    fleet_id = await safe_run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+
 
     if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet ID not found")
@@ -139,14 +147,15 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
         "fleet_id": fleet_id[0]
     }
     # new_id = location_model.create(new_location)
-    new_id = await run_in_threadpool(location_model.create, new_location)
+    # new_id = await run_in_threadpool(location_model.create, new_location)
+    new_id = await safe_run_in_threadpool(location_model.create, new_location)
         
     return {
         "status": "200 OK", 
         "nopol": nopol,
         "timestamp": data_dict.get("lastUpdated")
         }
-    # return new_location
+    # return new_location 
 
 @router.post("/karlo-update2/")
 async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
