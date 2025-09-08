@@ -62,16 +62,16 @@ async def get_address_from_coordinates(data: dict):
 # ##############################################
 router = APIRouter(prefix="/vehicle", tags=["Vehicle"])
 
-@router.get("/{nopol}", response_model=VehicleFleetOutDetail)
-def get_fleet(nopol: str, user=Depends(get_odoo_user)):
+@router.get("/{policenumber}", response_model=VehicleFleetOutDetail)
+def get_fleet(policenumber: str, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
 
-    # cari ID berdasarkan nopol
-    fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
+    # cari ID berdasarkan policenumber
+    fleet_id = fleet_model.search([('policenumber', '=', policenumber)], limit=1)
 
     if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet not found")
-    result = fleet_model.read(fleet_id, fields=['id', 'nopol', 'latitude', 'longitude', 'address', 'village', 'district', 'province', 'postcode', 'head_id', 'city', 'timestamp'])[0]
+    result = fleet_model.read(fleet_id, fields=['id', 'policenumber', 'latitude', 'longitude', 'address', 'village', 'district', 'province', 'postcode', 'head_id', 'city', 'timestamp'])[0]
 
     # Head
     head = None
@@ -88,11 +88,11 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
 
     data_dict = await preprocess_odoo_data(data.dict()) # process data
-    # cari ID berdasarkan nopol
-    nopol = data_dict.get("plate_number")
-    # fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
-    # fleet_id = await run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
-    fleet_id = await safe_run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+    # cari ID berdasarkan policenumber
+    policenumber = data_dict.get("plate_number")
+    # fleet_id = fleet_model.search([('policenumber', '=', policenumber)], limit=1)
+    # fleet_id = await run_in_threadpool(fleet_model.search, [('policenumber', '=', policenumber)], limit=1)
+    fleet_id = await safe_run_in_threadpool(fleet_model.search, [('policenumber', '=', policenumber)], limit=1)
 
 
     if not fleet_id:
@@ -112,15 +112,16 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
         "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
         "postcode": address_line.get("postcode") or "",
         "timestamp": data_dict.get("lastUpdated"),
-        "fleet_id": fleet_id[0]
+        "id": fleet_id[0]
     }
     # new_id = location_model.create(new_location)
     # new_id = await run_in_threadpool(location_model.create, new_location)
     new_id = await safe_run_in_threadpool(fleet_model.write, [fleet_id[0]], new_location)
+    # new_id = await safe_run_in_threadpool(fleet_model.create, new_location)
         
     return {
         "status": "200 OK", 
-        "nopol": nopol,
+        "policenumber": policenumber,
         "timestamp": data_dict.get("lastUpdated"),
         }
     # return new_location 
@@ -132,11 +133,11 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
 
     # Preprocess data
     data_dict = await preprocess_odoo_data(data.dict())
-    nopol = data_dict.get("plate_number")
+    policenumber = data_dict.get("plate_number")
 
     # Jalankan search dan get_address secara paralel
     search_task = asyncio.create_task(
-        run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+        safe_run_in_threadpool(fleet_model.search, [('policenumber', '=', policenumber)], limit=1)
     )
     address_task = asyncio.create_task(
         get_address_from_coordinates(data_dict)
@@ -162,15 +163,16 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
         "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
         "postcode": address_line.get("postcode") or "",
         "timestamp": data_dict.get("lastUpdated"),
-        "fleet_id": fleet_id[0]
+        "id": fleet_id[0]
     }
 
     # Simpan data lokasi (juga di threadpool)
     new_id = await safe_run_in_threadpool(fleet_model.write, [fleet_id[0]], new_location)
+    # new_id = await safe_run_in_threadpool(fleet_model.create, new_location)
 
     return {
         "status": "200 OK",
-        "nopol": nopol,
+        "policenumber": policenumber,
         "timestamp": data_dict.get("lastUpdated")
     }
 

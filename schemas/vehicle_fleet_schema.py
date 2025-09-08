@@ -4,7 +4,7 @@ from datetime import datetime, date
 from schemas.vehicle_head_schema import VehicleHeadOut
 
 class VehicleFleetBase(BaseModel):
-    nopol: str = Field(..., title="Nomor Polisi")
+    policenumber: str = Field(..., title="Nomor Polisi")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address: Optional[str] = None
