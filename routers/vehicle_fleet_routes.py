@@ -12,7 +12,7 @@ import httpx
 from fastapi.concurrency import run_in_threadpool
 import asyncio
 
-odoo_rpc_semaphore = asyncio.Semaphore(4)
+odoo_rpc_semaphore = asyncio.Semaphore(20)
 
 async def safe_run_in_threadpool(func, *args, **kwargs):
     async with odoo_rpc_semaphore:
@@ -169,7 +169,8 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
 
     # Jalankan search dan get_address secara paralel
     search_task = asyncio.create_task(
-        run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+        # run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+        safe_run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
     )
     address_task = asyncio.create_task(
         get_address_from_coordinates(data.dict())
@@ -200,6 +201,7 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
 
     # Simpan data lokasi (juga di threadpool)
     new_id = await run_in_threadpool(location_model.create, new_location)
+    new_id = await safe_run_in_threadpool(location_model.create, new_location)
 
     return {
         "status": "200 OK",
