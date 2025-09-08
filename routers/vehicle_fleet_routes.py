@@ -47,11 +47,11 @@ def get_fleet(nopol: str, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
 
     # cari ID berdasarkan nopol
-    fleet_ids = fleet_model.search([('nopol', '=', nopol)], limit=1)
+    fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
 
-    if not fleet_ids:
+    if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet not found")
-    result = fleet_model.read(fleet_ids, fields=['id', 'nopol', 'head_id', 'city', 'timestamp'])[0]
+    result = fleet_model.read(fleet_id, fields=['id', 'nopol', 'latitude', 'longitude', 'address', 'village', 'district', 'province', 'postcode', 'head_id', 'city', 'timestamp'])[0]
 
     # Head
     head = None
@@ -60,13 +60,12 @@ def get_fleet(nopol: str, user=Depends(get_odoo_user)):
             "id": result["head_id"][0],
             "nolambung": result["head_id"][1],
         }
-
+    result["head"] = head
     return result
 
 @router.post("/karlo-update/")
 async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
     data_dict = preprocess_odoo_data(data.dict()) # process data
     # cari ID berdasarkan nopol
@@ -97,12 +96,12 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
     }
     # new_id = location_model.create(new_location)
     # new_id = await run_in_threadpool(location_model.create, new_location)
-    new_id = await safe_run_in_threadpool(location_model.create, new_location)
+    new_id = await safe_run_in_threadpool(fleet_model.write, [fleet_id[0]], new_location)
         
     return {
         "status": "200 OK", 
         "nopol": nopol,
-        "timestamp": data_dict.get("lastUpdated")
+        "timestamp": data_dict.get("lastUpdated"),
         }
     # return new_location 
 
@@ -110,7 +109,6 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
 async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
     # Inisialisasi model Odoo
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
     # Preprocess data
     data_dict = preprocess_odoo_data(data.dict())
@@ -121,7 +119,7 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
         run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
     )
     address_task = asyncio.create_task(
-        get_address_from_coordinates(data.dict())
+        get_address_from_coordinates(data_dict)
     )
 
     # Tunggu dua-duanya selesai
@@ -148,7 +146,7 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     }
 
     # Simpan data lokasi (juga di threadpool)
-    new_id = await run_in_threadpool(location_model.create, new_location)
+    new_id = await safe_run_in_threadpool(fleet_model.write, [fleet_id[0]], new_location)
 
     return {
         "status": "200 OK",

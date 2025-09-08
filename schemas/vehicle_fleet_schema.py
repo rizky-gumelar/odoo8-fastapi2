@@ -20,7 +20,7 @@ class VehicleFleetCreate(VehicleFleetBase):
 
 class VehicleFleetOut(VehicleFleetBase):
     id: int
-    head: Optional[int]
+    head_id: Optional[int]
 
 class VehicleFleetOutDetail(VehicleFleetBase):
     id: int
