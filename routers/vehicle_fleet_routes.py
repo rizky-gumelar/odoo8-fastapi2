@@ -10,12 +10,32 @@ import base64
 import httpx
 from fastapi.concurrency import run_in_threadpool
 import asyncio
+from tenacity import retry, stop_after_attempt, wait_fixed
+import logging
+import socket
 
-odoo_rpc_semaphore = asyncio.Semaphore(4)
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def run_with_retry(func, *args, **kwargs):
+    return func(*args, **kwargs)
+
+logger = logging.getLogger(__name__)
+
+odoo_rpc_semaphore = asyncio.Semaphore(20)
+
+# async def safe_run_in_threadpool(func, *args, **kwargs):
+#     async with odoo_rpc_semaphore:
+#         return await run_in_threadpool(run_with_retry, func, *args, **kwargs)
 
 async def safe_run_in_threadpool(func, *args, **kwargs):
     async with odoo_rpc_semaphore:
-        return await run_in_threadpool(func, *args, **kwargs)
+        try:
+            return await run_in_threadpool(run_with_retry, func, *args, **kwargs)
+        except socket.timeout:
+            logger.error("Timeout saat akses Odoo: %s", func.__name__)
+            raise
+        except Exception as e:
+            logger.exception("Error saat akses Odoo: %s", func.__name__)
+            raise
 
 async def get_address_from_coordinates(data: dict):
     lat = data.get("latitude")

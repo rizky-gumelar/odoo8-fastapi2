@@ -1,5 +1,16 @@
 import xmlrpc.client
 from config.settings import settings
+import socket
+
+class TimeoutTransport(xmlrpc.client.Transport):
+    def __init__(self, timeout=5.0):
+        super().__init__()
+        self.timeout = timeout
+
+    def make_connection(self, host):
+        conn = super().make_connection(host)
+        conn.timeout = self.timeout
+        return conn
 
 class OdooModel:
     def __init__(self, model: str, uid: int, username: str, password: str):
@@ -10,8 +21,15 @@ class OdooModel:
         self.url = settings.ODOO_URL
         self.db = settings.ODOO_DB
         # self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
+        # self.models = xmlrpc.client.ServerProxy(
+        #     f"{self.url}/xmlrpc/2/object", allow_none=True
+        # )
+
+        # TimeoutTransport
         self.models = xmlrpc.client.ServerProxy(
-            f"{self.url}/xmlrpc/2/object", allow_none=True
+            f"{self.url}/xmlrpc/2/object",
+            allow_none=True,
+            transport=TimeoutTransport(timeout=5.0)
         )
 
     def search_read(self, domain=None, fields=None, limit=10):
