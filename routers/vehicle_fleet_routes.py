@@ -67,7 +67,7 @@ def get_fleet(nopol: str, user=Depends(get_odoo_user)):
 async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
 
-    data_dict = preprocess_odoo_data(data.dict()) # process data
+    data_dict = await preprocess_odoo_data(data.dict()) # process data
     # cari ID berdasarkan nopol
     nopol = data_dict.get("plate_number")
     # fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
@@ -111,7 +111,7 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
 
     # Preprocess data
-    data_dict = preprocess_odoo_data(data.dict())
+    data_dict = await preprocess_odoo_data(data.dict())
     nopol = data_dict.get("plate_number")
 
     # Jalankan search dan get_address secara paralel

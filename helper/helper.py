@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Any, Dict
 
-def preprocess_odoo_data(data: dict) -> dict:
+async def preprocess_odoo_data(data: dict) -> dict:
     processed = {}
 
     for k, v in data.items():
