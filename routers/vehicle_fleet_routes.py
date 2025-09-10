@@ -46,8 +46,8 @@ router = APIRouter(prefix="/vehicle", tags=["Vehicle"])
 @router.get("/{policenumber}")
 def get_fleet(policenumber: str, user=Depends(get_odoo_user)):
     fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("sisu.karlo.master.kelurahan", user["uid"], user["username"], user["password"])
-   
+    location_model = OdooModel("sisu.karlo.master.fleet.gpslocation", user["uid"], user["username"], user["password"])
+
     # fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
     # location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
@@ -117,18 +117,43 @@ def create_location(data: VehicleLocationCreate, user=Depends(get_odoo_user)):
     clean_location = normalize_relations(location[0])
     return clean_location
 
+@router.get("/area/{postcode}")
+def get_area(postcode: str, user=Depends(get_odoo_user)):
+    kelurahan_model = OdooModel("sisu.karlo.master.kelurahan", user["uid"], user["username"], user["password"])
+    provinsi_model = OdooModel("sisu.karlo.master.provinsi", user["uid"], user["username"], user["password"])
+
+    kelurahan_id = kelurahan_model.search([('kodepos', '=', postcode)], limit=1)
+    if not kelurahan_id:
+        raise HTTPException(status_code=404, detail="Postcode not found")
+
+    kelurahan = kelurahan_model.read(kelurahan_id, fields=['id', 'name', 'kecamatan_id', 'city_id', 'provinsi_id'])[0]
+
+    # Ubah provinsi_id dari [id, name] menjadi dict
+    prov_id, prov_name = kelurahan.get("provinsi_id") or (None, None)
+    # kelurahan["provinsi_id"] = {"id": prov_id, "name": prov_name} if prov_id else None
+
+    provinsi = provinsi_model.read([prov_id], fields=['id', 'name', 'area'])[0] if prov_id else {}
+
+    return {
+        "kelurahan_data": kelurahan,
+        "provinsi_data": provinsi
+    }
+
 @router.post("/karlo-update/")
 async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
-    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
+    fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
+    location_model = OdooModel("sisu.karlo.master.fleet.gpslocation", user["uid"], user["username"], user["password"])
+    kelurahan_model = OdooModel("sisu.karlo.master.kelurahan", user["uid"], user["username"], user["password"])
+    provinsi_model = OdooModel("sisu.karlo.master.provinsi", user["uid"], user["username"], user["password"])
+    # fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
+    # location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
     data_dict = preprocess_odoo_data(data.dict()) # process data
     # cari ID berdasarkan nopol
     nopol = data_dict.get("plate_number")
     # fleet_id = fleet_model.search([('nopol', '=', nopol)], limit=1)
     # fleet_id = await run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
-    fleet_id = await safe_run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
-
+    fleet_id = await safe_run_in_threadpool(fleet_model.search, [('policenumber', '=', nopol)], limit=1)
 
     if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet ID not found")
@@ -136,17 +161,26 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
     # get address
     address_data = await get_address_from_coordinates(data.dict())
     address_line = address_data.get("address", {})
+
+    #get area
+    kelurahan_id = kelurahan_model.search([('kodepos', '=', address_line.get("postcode"))], limit=1)
+    kelurahan = kelurahan_model.read(kelurahan_id, fields=['id', 'name', 'kecamatan_id', 'city_id', 'provinsi_id'])[0]
+    prov_id, prov_name = kelurahan.get("provinsi_id") or (None, None)
+    provinsi = provinsi_model.read([prov_id], fields=['id', 'name', 'area'])[0] if prov_id else {}
+
     # save location
     new_location = {
-        "latitude": data_dict.get("latitude"),
-        "longitude": data_dict.get("longitude"),
-        "address": address_data.get("display_name") or address_line.get("road") or "",
-        "village": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
-        "district": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
-        "city": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
-        "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
-        "postcode": address_line.get("postcode") or "",
-        "timestamp": data_dict.get("lastUpdated"),
+        "gpslatitude": data_dict.get("latitude"),
+        "gpslongitude": data_dict.get("longitude"),
+        "gpsstreet": address_data.get("display_name") or address_line.get("road") or "",
+        "kelurahan": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
+        "kecamatan": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
+        "gpscity": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
+        "gpskota": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
+        # "gps_area": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
+        "gpspostcode": address_line.get("postcode") or "",
+        "gpstime": data_dict.get("lastUpdated"),
+        "gps_area": provinsi.get("area"),
         "fleet_id": fleet_id[0]
     }
     # new_id = location_model.create(new_location)
@@ -163,9 +197,11 @@ async def update_location(data: VehicleKarloCreate, user=Depends(get_odoo_user))
 @router.post("/karlo-update2/")
 async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
     # Inisialisasi model Odoo
-    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
-
+    fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
+    location_model = OdooModel("sisu.karlo.master.fleet.gpslocation", user["uid"], user["username"], user["password"])
+    kelurahan_model = OdooModel("sisu.karlo.master.kelurahan", user["uid"], user["username"], user["password"])
+    provinsi_model = OdooModel("sisu.karlo.master.provinsi", user["uid"], user["username"], user["password"])
+    
     # Preprocess data
     data_dict = preprocess_odoo_data(data.dict())
     nopol = data_dict.get("plate_number")
@@ -173,7 +209,7 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     # Jalankan search dan get_address secara paralel
     search_task = asyncio.create_task(
         # run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
-        safe_run_in_threadpool(fleet_model.search, [('nopol', '=', nopol)], limit=1)
+        safe_run_in_threadpool(fleet_model.search, [('policenumber', '=', nopol)], limit=1)
     )
     address_task = asyncio.create_task(
         get_address_from_coordinates(data.dict())
@@ -188,22 +224,31 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
 
     address_line = address_data.get("address", {})
 
+    #get area
+    #get area
+    kelurahan_id = kelurahan_model.search([('kodepos', '=', address_line.get("postcode"))], limit=1)
+    kelurahan = kelurahan_model.read(kelurahan_id, fields=['id', 'name', 'kecamatan_id', 'city_id', 'provinsi_id'])[0]
+    prov_id, prov_name = kelurahan.get("provinsi_id") or (None, None)
+    provinsi = provinsi_model.read([prov_id], fields=['id', 'name', 'area'])[0] if prov_id else {}
+
     # Siapkan data lokasi
     new_location = {
-        "latitude": data_dict.get("latitude"),
-        "longitude": data_dict.get("longitude"),
-        "address": address_data.get("display_name") or address_line.get("road") or "",
-        "village": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
-        "district": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
-        "city": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
-        "province": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
-        "postcode": address_line.get("postcode") or "",
-        "timestamp": data_dict.get("lastUpdated"),
+        "gpslatitude": data_dict.get("latitude"),
+        "gpslongitude": data_dict.get("longitude"),
+        "gpsstreet": address_data.get("display_name") or address_line.get("road") or "",
+        "kelurahan": address_line.get("village") or address_line.get("hamlet") or address_line.get("neighbourhood") or address_line.get("residential") or "",
+        "kecamatan": address_line.get("state_district") or address_line.get("city_district") or address_line.get("suburb") or "",
+        "gpscity": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
+        "gpskota": address_line.get("city") or address_line.get("town") or address_line.get("county") or address_line.get("municipality") or "",
+        # "gps_area": address_line.get("state") or address_line.get("region") or address_line.get("county") or "",
+        "gpspostcode": address_line.get("postcode") or "",
+        "gpstime": data_dict.get("lastUpdated"),
+        "gps_area": provinsi.get("area"),
         "fleet_id": fleet_id[0]
     }
 
     # Simpan data lokasi (juga di threadpool)
-    new_id = await run_in_threadpool(location_model.create, new_location)
+    # new_id = await run_in_threadpool(location_model.create, new_location)
     new_id = await safe_run_in_threadpool(location_model.create, new_location)
 
     return {
