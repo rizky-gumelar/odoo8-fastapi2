@@ -43,17 +43,20 @@ async def get_address_from_coordinates(data: dict):
 # ##############################################
 router = APIRouter(prefix="/vehicle", tags=["Vehicle"])
 
-@router.get("/{nopol}", response_model=VehicleFleetOutDetail)
-def get_fleet(nopol: str, user=Depends(get_odoo_user)):
-    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
+@router.get("/{policenumber}")
+def get_fleet(policenumber: str, user=Depends(get_odoo_user)):
+    fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
+    location_model = OdooModel("sisu.karlo.master.kelurahan", user["uid"], user["username"], user["password"])
+   
+    # fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
+    # location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
-    # cari ID berdasarkan nopol
-    fleet_ids = fleet_model.search([('nopol', '=', nopol)], limit=1)
+    # cari ID berdasarkan policenumber
+    fleet_ids = fleet_model.search([('policenumber', '=', policenumber)], limit=1)
 
     if not fleet_ids:
         raise HTTPException(status_code=404, detail="Fleet not found")
-    result = fleet_model.read(fleet_ids, fields=['id', 'nopol', 'head_id', 'last_location_id'])[0]
+    result = fleet_model.read(fleet_ids, fields=['id', 'policenumber', 'head_id', 'gps_locations'])[0]
 
     # Head
     head = None
@@ -65,41 +68,41 @@ def get_fleet(nopol: str, user=Depends(get_odoo_user)):
 
     # Last Location
     last_location = None
-    if result.get("last_location_id"):
+    if result.get("gps_locations"):
         loc_data = location_model.read(
-            [result["last_location_id"][0]],
-            fields=[
-                'id', 'fleet_id', 'latitude', 'longitude', 'address', 'village',
-                'district', 'city', 'province', 'postcode', 'timestamp'
-            ]
+            [result["gps_locations"][0]],
+            fields=['id', 'fleet_id', 'gpslatitude', 'gpslongitude', 'gpsstreet', 'kelurahan', 'kecamatan', 'gpscity', 'gpspostcode', 'gpstime']
         )
         if loc_data:
             loc = loc_data[0]
             last_location = {
                 "id": loc["id"],
                 "fleet_id": loc["fleet_id"][0] if isinstance(loc["fleet_id"], list) else loc["fleet_id"],
-                "latitude": loc.get("latitude"),
-                "longitude": loc.get("longitude"),
-                "address": loc.get("address"),
-                "village": loc.get("village"), 
-                "district": loc.get("district"),
-                "city": loc.get("city"),
-                "province": loc.get("province"),
-                "postcode": loc.get("postcode"),
-                "timestamp": loc.get("timestamp"),
+                "gpslatitude": loc.get("gpslatitude"),
+                "gpslongitude": loc.get("gpslongitude"),
+                "gpsstreet": loc.get("gpsstreet"),
+                "kelurahan": loc.get("kelurahan"), 
+                "kecamatan": loc.get("kecamatan"),
+                "gpscity": loc.get("gpscity"),
+                # "province": loc.get("province"),
+                "gpspostcode": loc.get("gpspostcode"),
+                "gpstime": loc.get("gpstime"),
             }
 
     return {
         "id": result["id"],
-        "nopol": result["nopol"],
+        "policenumber": result["policenumber"],
         "head": head,
-        "last_location": last_location
+        "last_location": last_location,
     }
 
-@router.post("/location/", response_model=VehicleLocationOut)
+@router.post("/location/")
 def create_location(data: VehicleLocationCreate, user=Depends(get_odoo_user)):
-    location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
-    fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
+    fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
+    location_model = OdooModel("sisu.karlo.master.fleet.gpslocation", user["uid"], user["username"], user["password"])
+
+    # fleet_model = OdooModel("vehicle.fleet", user["uid"], user["username"], user["password"])
+    # location_model = OdooModel("vehicle.location", user["uid"], user["username"], user["password"])
 
     data_dict = preprocess_odoo_data(data.dict()) # process data
     
@@ -109,7 +112,7 @@ def create_location(data: VehicleLocationCreate, user=Depends(get_odoo_user)):
         raise HTTPException(status_code=404, detail="Fleet ID not found")
 
     new_id = location_model.create(data_dict)
-    location = location_model.read([new_id], fields=['id', 'fleet_id', 'latitude', 'longitude', 'address', 'village', 'district', 'city', 'province', 'postcode', 'timestamp'])
+    location = location_model.read([new_id], fields=['id', 'fleet_id', 'gpslatitude', 'gpslongitude', 'gpsstreet', 'kelurahan', 'kecamatan', 'gpscity', 'gpspostcode', 'gpstime'])
     # Normalisasi hasil
     clean_location = normalize_relations(location[0])
     return clean_location

@@ -5,7 +5,13 @@ from schemas.vehicle_head_schema import VehicleHeadOut
 from schemas.vehicle_location_schema import VehicleLocationOut
 
 class VehicleFleetBase(BaseModel):
-    nopol: str = Field(..., title="Nomor Polisi")
+    name: str = Field(..., title="Nama")
+    policenumber: str = Field(..., title="Nomor Polisi")
+    brand: Optional[str] = None
+    color: Optional[str] = None
+    cargotype: Optional[str] = None
+    trucktype: Optional[str] = None
+    is_active: Optional[bool] = Field(True)
 
 class VehicleFleetCreate(VehicleFleetBase):
     head_id: Optional[int] = None

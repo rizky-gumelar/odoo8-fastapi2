@@ -4,15 +4,15 @@ from datetime import datetime, date
 
 
 class VehicleLocationBase(BaseModel):
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    address: Optional[str] = None
-    village: Optional[str] = None
-    district: Optional[str] = None
-    city: Optional[str] = None
-    province: Optional[str] = None
-    postcode: Optional[str] = None
-    timestamp: Optional[datetime] = None
+    gpslatitude: Optional[float] = None
+    gpslongitude: Optional[float] = None
+    gpsstreet: Optional[str] = None
+    kelurahan: Optional[str] = None
+    kecamatan: Optional[str] = None
+    gpscity: Optional[str] = None
+    # province: Optional[str] = None
+    gpspostcode: Optional[str] = None
+    gpstime: Optional[datetime] = None
 
 class VehicleLocationCreate(VehicleLocationBase):
     fleet_id: int
@@ -21,7 +21,7 @@ class VehicleLocationOut(VehicleLocationBase):
     id: int
     fleet_id: int
 
-    @field_validator("address", "village", "district", "city", "province", "postcode", mode="before")
+    @field_validator("gpsstreet", "kelurahan", "kecamatan", "gpscity", "gpspostcode", mode="before")
     @classmethod
     def convert_false_to_none(cls, v):
         return None if v is False else v
