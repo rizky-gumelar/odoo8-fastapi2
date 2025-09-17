@@ -14,6 +14,19 @@ class OdooModel:
             f"{self.url}/xmlrpc/2/object", allow_none=True
         )
 
+    def call(self, method_name, args=None, kwargs=None):
+        args = args or []
+        kwargs = kwargs or {}
+        return self.models.execute_kw(
+            self.db,
+            self.uid,
+            self.password,
+            self.model,
+            method_name,
+            args,
+            kwargs
+        )
+
     def search_read(self, domain=None, fields=None, limit=10):
         return self.models.execute_kw(
             self.db,
@@ -79,4 +92,27 @@ class OdooModel:
                 'offset': offset,
                 'order': order,
             }
+        )
+
+    def call2(self, method, ids=None, *args):
+        """
+        Memanggil method pada model atau record Odoo.
+        - ids: list of record IDs (untuk method instance)
+        - args: positional args untuk method tersebut
+        """
+        if ids is None:
+            ids = []
+
+        # Jangan bungkus sebagai list kalau memang hanya satu
+        call_ids = ids
+        if isinstance(ids, list) and len(ids) == 1:
+            call_ids = ids[0]  # Kirim sebagai scalar
+
+        return self.models.execute_kw(
+            self.db,
+            self.uid,
+            self.password,
+            self.model,
+            method,
+            [call_ids] + list(args)
         )

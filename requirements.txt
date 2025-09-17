@@ -8,3 +8,4 @@ pydantic
 PyJWT
 pydantic-settings
 httpx
+logging

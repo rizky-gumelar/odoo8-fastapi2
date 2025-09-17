@@ -8,7 +8,7 @@ class VehicleKarloBase(BaseModel):
     gps_imei: str = Field(..., example="No IMEI GPS")
     gps_vendor: str = Field(..., example="Brand or Vendor GPS")
     gps_network: str = Field(..., example="2G / 4G")
-    plate_number: str = Field(..., example="H-1234-OH")
+    plate_number: str = Field(..., example="H-8014-OP")
     latitude: float = Field(..., example=-7.32086666666667)
     longitude: float = Field(..., example=112.716716666667)
     altitude: float = Field(..., example=0.0)

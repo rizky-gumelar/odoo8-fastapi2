@@ -6,7 +6,7 @@ class LoginRequest(BaseModel):
 
 # class LoginRequest(BaseModel):
 #     username: str = "admin"
-#     password: str = "1"
+#     password: str = "1234"
 
 
 class LoginResponse(BaseModel):
