@@ -389,15 +389,32 @@ async def update_location2(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     }
 
 # SIMPLIFY VIA ODOO
-@router.post("/karlo-update-simplify/")
+@router.post("/karlo-update3/")
 async def update_location3(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
 
     fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
 
     data_dict = preprocess_odoo_data(data.dict())
-    result = await safe_run_in_threadpool(
+    result = await run_in_threadpool(
         fleet_model.call,
         "karlo_update_location",  # nama method
+        [data_dict]  # argumen untuk method
+    )
+    
+    return result
+
+@router.post("/karlo-update5/")
+async def update_location5(data: VehicleKarloCreate, user=Depends(get_odoo_user)):
+
+    fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
+
+    data_dict = preprocess_odoo_data(data.dict())
+    address_data = await get_address_from_coordinates(data.dict())
+    data_dict["address_data"] = address_data
+
+    result = await safe_run_in_threadpool(
+        fleet_model.call,
+        "karlo_update_location2",  # nama method
         [data_dict]  # argumen untuk method
     )
     
@@ -533,12 +550,6 @@ async def update_location4(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     fleet_model = OdooModel("sisu.karlo.master.fleet", user["uid"], user["username"], user["password"])
     nopol = data.dict().get("plate_number")
 
-    # Mulai waktu total
-    total_start = time.time()
-
-    # Waktu RPC search + Address API
-    search_start = time.time()
-
     search_task = asyncio.create_task(
         safe_run_in_threadpool(fleet_model.search, [('policenumber', '=', nopol)], limit=1)
     )
@@ -546,12 +557,6 @@ async def update_location4(data: VehicleKarloCreate, user=Depends(get_odoo_user)
         get_address_from_coordinates(data.dict())
     )
     fleet_id, address_data = await asyncio.gather(search_task, address_task)
-
-    # fleet_id = fleet_model.search([('policenumber', '=', nopol)], limit=1)
-    # address_data = await get_address_from_coordinates(data.dict())
-
-    search_duration = time.time() - search_start
-    print(f"⏱️ Search & Get Address duration: {search_duration:.3f} seconds")
 
     if not fleet_id:
         raise HTTPException(status_code=404, detail="Fleet ID not found")
@@ -563,24 +568,15 @@ async def update_location4(data: VehicleKarloCreate, user=Depends(get_odoo_user)
     data_dict = preprocess_odoo_data(address_data)
 
     # RPC update call
-    update_start = time.time()
-    try:
-        result = await safe_run_in_threadpool(
-            fleet_model.call2,
-            "update_location_from_api",
-            fleet_id[0],
-            data_dict
-        )
-        update_duration = time.time() - update_start
-        print(f"⏱️ Odoo Update RPC duration: {update_duration:.3f} seconds")
+    result = await run_in_threadpool(
+        fleet_model.call2,
+        "update_location_from_api",
+        fleet_id,
+        data_dict
+    )
 
-        total_duration = time.time() - total_start
-        print(f"✅ Total API duration: {total_duration:.3f} seconds")
+    return result
 
-        return result
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred in Odoo: {str(e)}")
 ########### CLOSE BENCHMARK ###########
 
 # @router.get("/2/{policenumber}")
