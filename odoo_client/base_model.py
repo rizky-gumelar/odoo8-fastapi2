@@ -1,5 +1,8 @@
 import xmlrpc.client
 from config.settings import settings
+import ssl
+
+context = ssl._create_unverified_context()
 
 class OdooModel:
     def __init__(self, model: str, uid: int, username: str, password: str):
@@ -11,7 +14,8 @@ class OdooModel:
         self.db = settings.ODOO_DB
         # self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
         self.models = xmlrpc.client.ServerProxy(
-            f"{self.url}/xmlrpc/2/object", allow_none=True
+            f"{self.url}/xmlrpc/2/object", allow_none=True,
+            context=context
         )
 
     def call(self, method_name, args=None, kwargs=None):
